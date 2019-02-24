@@ -30,7 +30,11 @@ The '''utils''' folder stores useful functions that are sourced by the main note
 
 To get started, first install the required library inside a virtual environment:
 
+<<<<<<< HEAD
 ''' pip install -r requirements.txt '''
+=======
+''' pip install -r requirements.txt'
+>>>>>>> 9963a3c03c88df2411aa31de8136000561e8d68a
  
 
 
