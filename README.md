@@ -10,9 +10,9 @@ This repository is structured as follows:
 
 The notebooks for each chapter are in the root of the repository, prefixed with the chapter number.
 
-The '''data''' folder is where to download relevant data sources (chapter 3 onwards)
-The '''run''' folder stores output from the generative models (chapter 3 onwards)
-The '''utils''' folder stores useful functions that are sourced by the main notebooks
+The `data` folder is where to download relevant data sources (chapter 3 onwards)
+The `run` folder stores output from the generative models (chapter 3 onwards)
+The `utils` folder stores useful functions that are sourced by the main notebooks
 
 ## Book Contents
 
