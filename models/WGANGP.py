@@ -103,6 +103,7 @@ class WGANGP():
         Computes gradient penalty based on prediction and weighted real / fake samples
         """
         gradients = K.gradients(y_pred, interpolated_samples)[0]
+        print(gradients.shape)
         # compute the euclidean norm by squaring ...
         gradients_sqr = K.square(gradients)
         #   ... summing over the rows ...
