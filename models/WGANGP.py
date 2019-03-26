@@ -33,7 +33,6 @@ class WGANGP():
         , critic_conv_filters
         , critic_conv_kernel_size
         , critic_conv_strides
-        , critic_conv_padding
         , critic_batch_norm_momentum
         , critic_activation
         , critic_dropout_rate
@@ -43,7 +42,6 @@ class WGANGP():
         , generator_conv_filters
         , generator_conv_kernel_size
         , generator_conv_strides
-        , generator_conv_padding
         , generator_batch_norm_momentum
         , generator_activation
         , generator_dropout_rate
@@ -60,7 +58,6 @@ class WGANGP():
         self.critic_conv_filters = critic_conv_filters
         self.critic_conv_kernel_size = critic_conv_kernel_size
         self.critic_conv_strides = critic_conv_strides
-        self.critic_conv_padding = critic_conv_padding
         self.critic_batch_norm_momentum = critic_batch_norm_momentum
         self.critic_activation = critic_activation
         self.critic_dropout_rate = critic_dropout_rate
@@ -71,7 +68,6 @@ class WGANGP():
         self.generator_conv_filters = generator_conv_filters
         self.generator_conv_kernel_size = generator_conv_kernel_size
         self.generator_conv_strides = generator_conv_strides
-        self.generator_conv_padding = generator_conv_padding
         self.generator_batch_norm_momentum = generator_batch_norm_momentum
         self.generator_activation = generator_activation
         self.generator_dropout_rate = generator_dropout_rate
@@ -103,7 +99,7 @@ class WGANGP():
         Computes gradient penalty based on prediction and weighted real / fake samples
         """
         gradients = K.gradients(y_pred, interpolated_samples)[0]
-        print(gradients.shape)
+
         # compute the euclidean norm by squaring ...
         gradients_sqr = K.square(gradients)
         #   ... summing over the rows ...
@@ -139,7 +135,7 @@ class WGANGP():
                 filters = self.critic_conv_filters[i]
                 , kernel_size = self.critic_conv_kernel_size[i]
                 , strides = self.critic_conv_strides[i]
-                , padding = self.critic_conv_padding
+                , padding = 'same'
                 , name = 'critic_conv_' + str(i)
                 , kernel_initializer = self.weight_init
                 )(x)
@@ -190,7 +186,7 @@ class WGANGP():
                 x = Conv2D(
                 filters = self.generator_conv_filters[i]
                 , kernel_size = self.generator_conv_kernel_size[i]
-                , padding = self.generator_conv_padding
+                , padding = 'same'
                 , name = 'generator_conv_' + str(i)
                 , kernel_initializer = self.weight_init
                 )(x)
@@ -199,7 +195,7 @@ class WGANGP():
                 x = Conv2DTranspose(
                     filters = self.generator_conv_filters[i]
                     , kernel_size = self.generator_conv_kernel_size[i]
-                    , padding = self.generator_conv_padding
+                    , padding = 'same'
                     , strides = self.generator_conv_strides[i]
                     , name = 'generator_conv_' + str(i)
                     , kernel_initializer = self.weight_init
@@ -408,7 +404,6 @@ class WGANGP():
                     , self.critic_conv_filters
                     , self.critic_conv_kernel_size
                     , self.critic_conv_strides
-                    , self.critic_conv_padding
                     , self.critic_batch_norm_momentum
                     , self.critic_activation
                     , self.critic_dropout_rate
@@ -418,7 +413,6 @@ class WGANGP():
                     , self.generator_conv_filters
                     , self.generator_conv_kernel_size
                     , self.generator_conv_strides
-                    , self.generator_conv_padding
                     , self.generator_batch_norm_momentum
                     , self.generator_activation
                     , self.generator_dropout_rate
@@ -435,7 +429,7 @@ class WGANGP():
         self.model.save(os.path.join(run_folder, 'model.h5'))
         self.critic.save(os.path.join(run_folder, 'critic.h5'))
         self.generator.save(os.path.join(run_folder, 'generator.h5'))
-        pickle.dump(self, open( "obj.pkl", "wb" ))
+        pickle.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
 
     def load_weights(self, filepath):
         self.model.load_weights(filepath)

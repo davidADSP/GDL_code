@@ -22,7 +22,6 @@ class WGAN():
         , critic_conv_filters
         , critic_conv_kernel_size
         , critic_conv_strides
-        , critic_conv_padding
         , critic_batch_norm_momentum
         , critic_activation
         , critic_dropout_rate
@@ -32,7 +31,6 @@ class WGAN():
         , generator_conv_filters
         , generator_conv_kernel_size
         , generator_conv_strides
-        , generator_conv_padding
         , generator_batch_norm_momentum
         , generator_activation
         , generator_dropout_rate
@@ -47,7 +45,6 @@ class WGAN():
         self.critic_conv_filters = critic_conv_filters
         self.critic_conv_kernel_size = critic_conv_kernel_size
         self.critic_conv_strides = critic_conv_strides
-        self.critic_conv_padding = critic_conv_padding
         self.critic_batch_norm_momentum = critic_batch_norm_momentum
         self.critic_activation = critic_activation
         self.critic_dropout_rate = critic_dropout_rate
@@ -58,7 +55,6 @@ class WGAN():
         self.generator_conv_filters = generator_conv_filters
         self.generator_conv_kernel_size = generator_conv_kernel_size
         self.generator_conv_strides = generator_conv_strides
-        self.generator_conv_padding = generator_conv_padding
         self.generator_batch_norm_momentum = generator_batch_norm_momentum
         self.generator_activation = generator_activation
         self.generator_dropout_rate = generator_dropout_rate
@@ -109,7 +105,7 @@ class WGAN():
                 filters = self.critic_conv_filters[i]
                 , kernel_size = self.critic_conv_kernel_size[i]
                 , strides = self.critic_conv_strides[i]
-                , padding = self.critic_conv_padding
+                , padding = 'same'
                 , name = 'critic_conv_' + str(i)
                 , kernel_initializer = self.weight_init
                 )(x)
@@ -166,7 +162,7 @@ class WGAN():
                 x = Conv2D(
                 filters = self.generator_conv_filters[i]
                 , kernel_size = self.generator_conv_kernel_size[i]
-                , padding = self.generator_conv_padding
+                , padding = 'same'
                 , name = 'generator_conv_' + str(i)
                 , kernel_initializer = self.weight_init
                 )(x)
@@ -175,7 +171,7 @@ class WGAN():
                 x = Conv2DTranspose(
                     filters = self.generator_conv_filters[i]
                     , kernel_size = self.generator_conv_kernel_size[i]
-                    , padding = self.generator_conv_padding
+                    , padding = 'same'
                     , strides = self.generator_conv_strides[i]
                     , name = 'generator_conv_' + str(i)
                     , kernel_initializer = self.weight_init
@@ -288,24 +284,17 @@ class WGAN():
     def train(self, x_train, batch_size, epochs, run_folder, print_every_n_batches = 10
         , n_critic = 5
         , clip_threshold = 0.01
-        , large_it_critic = 25
-        , large_n_critic = 100
         , using_generator = False):
 
         for epoch in range(self.epoch, self.epoch + epochs):
 
-            if epoch < large_it_critic:
-                c_iter = large_n_critic
-            else:
-                c_iter = n_critic
-
-            for _ in range(c_iter):
+            for _ in range(n_critic):
                 d_loss = self.train_critic(x_train, batch_size, clip_threshold, using_generator)
 
             g_loss = self.train_generator(batch_size)
                
             # Plot the progress
-            print ("%d (%d, %d) [D loss: (%.3f)(R %.3f, F %.3f)]  [G loss: %.3f] " % (epoch, c_iter, 1, d_loss[0], d_loss[1], d_loss[2], g_loss))
+            print ("%d [D loss: (%.3f)(R %.3f, F %.3f)]  [G loss: %.3f] " % (epoch, d_loss[0], d_loss[1], d_loss[2], g_loss))
             
             self.d_losses.append(d_loss)
             self.g_losses.append(g_loss)
@@ -361,7 +350,6 @@ class WGAN():
                     , self.critic_conv_filters
                     , self.critic_conv_kernel_size
                     , self.critic_conv_strides
-                    , self.critic_conv_padding
                     , self.critic_batch_norm_momentum
                     , self.critic_activation
                     , self.critic_dropout_rate
@@ -371,7 +359,6 @@ class WGAN():
                     , self.generator_conv_filters
                     , self.generator_conv_kernel_size
                     , self.generator_conv_strides
-                    , self.generator_conv_padding
                     , self.generator_batch_norm_momentum
                     , self.generator_activation
                     , self.generator_dropout_rate
@@ -386,7 +373,7 @@ class WGAN():
         self.model.save(os.path.join(run_folder, 'model.h5'))
         self.critic.save(os.path.join(run_folder, 'critic.h5'))
         self.generator.save(os.path.join(run_folder, 'generator.h5'))
-        pickle.dump(self, open( "obj.pkl", "wb" ))
+        pickle.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
 
     def load_weights(self, filepath):
         self.model.load_weights(filepath)
