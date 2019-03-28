@@ -302,7 +302,7 @@ class WGAN():
             # If at save interval => save generated image samples
             if epoch % print_every_n_batches == 0:
                 self.sample_images(run_folder)
-                self.model.save_weights(os.path.join(run_folder, 'weights/weights.h5'))
+                self.model.save_weights(os.path.join(run_folder, 'weights/weights-%d.h5' % (epoch)))
                 self.save_model(run_folder)
             
             self.epoch+=1
@@ -337,12 +337,6 @@ class WGAN():
 
             
     def save(self, folder):
-
-            if not os.path.exists(folder):
-                os.makedirs(folder)
-                os.makedirs(os.path.join(folder, 'viz'))
-                os.makedirs(os.path.join(folder, 'weights'))
-                os.makedirs(os.path.join(folder, 'images'))
 
             with open(os.path.join(folder, 'params.pkl'), 'wb') as f:
                 pickle.dump([
