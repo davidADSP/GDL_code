@@ -37,6 +37,7 @@ nbformat==4.4.0
 networkx==2.2
 notebook==5.7.4
 numpy==1.16.1
+pandas==0.24.2
 pandocfilters==1.4.2
 parso==0.3.4
 pexpect==4.6.0
@@ -46,9 +47,11 @@ prometheus-client==0.6.0
 prompt-toolkit==2.0.9
 protobuf==3.6.1
 ptyprocess==0.6.0
+pydot==1.4.1
 Pygments==2.3.1
 pyparsing==2.3.1
 python-dateutil==2.8.0
+pytz==2018.9
 PyWavelets==1.0.1
 PyYAML==3.13
 pyzmq==18.0.0
