@@ -1,5 +1,5 @@
 
-from keras.layers import Input, Conv2D, Flatten, Dense, Conv2DTranspose, Reshape, Lambda, Activation, BatchNormalization, LeakyReLU, Dropout, ZeroPadding2D, UpSampling2D
+from keras.layers import Input, Conv2D, Flatten, Dense, Conv2DTranspose, Reshape, Lambda, Activation, BatchNormalization, LeakyReLU, Dropout, ZeroPadding2D, UpSampling2D, Reshape, Permute, RepeatVector, Concatenate, Conv3D
 from keras.layers.merge import _Merge
 
 from keras.models import Model, Sequential
@@ -17,6 +17,10 @@ import os
 import pickle
 import matplotlib.pyplot as plt
 
+from music21 import midi
+from music21 import note, stream, duration
+
+
 
 class RandomWeightedAverage(_Merge):
     def __init__(self, batch_size):
@@ -27,58 +31,34 @@ class RandomWeightedAverage(_Merge):
         alpha = K.random_uniform((self.batch_size, 1, 1, 1))
         return (alpha * inputs[0]) + ((1 - alpha) * inputs[1])
 
-class WGANGP():
+class MuseGAN():
     def __init__(self
         , input_dim
-        , critic_conv_filters
-        , critic_conv_kernel_size
-        , critic_conv_strides
-        , critic_batch_norm_momentum
-        , critic_activation
-        , critic_dropout_rate
         , critic_learning_rate
-        , generator_initial_dense_layer_size
-        , generator_upsample
-        , generator_conv_filters
-        , generator_conv_kernel_size
-        , generator_conv_strides
-        , generator_batch_norm_momentum
-        , generator_activation
-        , generator_dropout_rate
         , generator_learning_rate
         , optimiser
         , grad_weight
         , z_dim
         , batch_size
+        , n_tracks
+        , n_bars
+        , n_steps_per_bar
         ):
 
         self.name = 'gan'
 
         self.input_dim = input_dim
-        self.critic_conv_filters = critic_conv_filters
-        self.critic_conv_kernel_size = critic_conv_kernel_size
-        self.critic_conv_strides = critic_conv_strides
-        self.critic_batch_norm_momentum = critic_batch_norm_momentum
-        self.critic_activation = critic_activation
-        self.critic_dropout_rate = critic_dropout_rate
+
         self.critic_learning_rate = critic_learning_rate
 
-        self.generator_initial_dense_layer_size = generator_initial_dense_layer_size
-        self.generator_upsample = generator_upsample
-        self.generator_conv_filters = generator_conv_filters
-        self.generator_conv_kernel_size = generator_conv_kernel_size
-        self.generator_conv_strides = generator_conv_strides
-        self.generator_batch_norm_momentum = generator_batch_norm_momentum
-        self.generator_activation = generator_activation
-        self.generator_dropout_rate = generator_dropout_rate
         self.generator_learning_rate = generator_learning_rate
         
         self.optimiser = optimiser
 
         self.z_dim = z_dim
-
-        self.n_layers_critic = len(critic_conv_filters)
-        self.n_layers_generator = len(generator_conv_filters)
+        self.n_tracks = n_tracks
+        self.n_bars = n_bars
+        self.n_steps_per_bar = n_steps_per_bar
 
         self.weight_init = RandomNormal(mean=0., stddev=0.02) # 'he_normal' #RandomNormal(mean=0., stddev=0.02)
         self.grad_weight = grad_weight
@@ -122,6 +102,22 @@ class WGANGP():
             layer = Activation(activation)
         return layer
 
+    def conv(self, x, f, k, s, a, p):
+        x = Conv2D(
+                    filters = f
+                    , kernel_size = k
+                    , padding = p
+                    , strides = s
+                    , kernel_initializer = self.weight_init
+                    )(x)
+        if a =='relu':
+            x = Activation(a)(x)
+        elif a== 'lrelu':
+            x = LeakyReLU()(x)
+
+        
+        return x
+
     def _build_critic(self):
 
         ### THE critic
@@ -129,90 +125,94 @@ class WGANGP():
 
         x = critic_input
 
-        for i in range(self.n_layers_critic):
-
-            x = Conv2D(
-                filters = self.critic_conv_filters[i]
-                , kernel_size = self.critic_conv_kernel_size[i]
-                , strides = self.critic_conv_strides[i]
-                , padding = 'same'
-                , name = 'critic_conv_' + str(i)
-                , kernel_initializer = self.weight_init
-                )(x)
-
-            if self.critic_batch_norm_momentum and i > 0:
-                x = BatchNormalization(momentum = self.critic_batch_norm_momentum)(x)
-
-            x = self.get_activation(self.critic_activation)(x)
-
-            if self.critic_dropout_rate:
-                x = Dropout(rate = self.critic_dropout_rate)(x)
+        x = self.conv(x, f=128, k = (1,12), s = (1,12), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (1,7), s = (1,7), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (2,1), s = (2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (2,1), s = (2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=256, k = (4,1), s = (2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=512, k = (3,1), s = (2,1), a = 'lrelu', p = 'same')
 
         x = Flatten()(x)
 
-        # x = Dense(512, kernel_initializer = self.weight_init)(x)
-
-        # x = self.get_activation(self.critic_activation)(x)
+        x = Dense(1024, activation='relu', kernel_initializer = self.weight_init)(x)
+        critic_output = Dense(1, activation=None, kernel_initializer = self.weight_init)(x)
         
-        critic_output = Dense(1, activation=None
+
+        self.critic = Model(critic_input, critic_output)
+
+    def conv_t(self, x, f, k, s, a, bn):
+        # x = Conv2DTranspose(
+        #             filters = f
+        #             , kernel_size = k
+        #             , padding = 'same'
+        #             , strides = s
+        #             , kernel_initializer = self.weight_init
+        #             )(x)
+
+        x = UpSampling2D(size = s)(x)
+        x = Conv2D(
+        filters = f
+        , kernel_size = k
+        , padding = 'same'
         , kernel_initializer = self.weight_init
         )(x)
 
-        self.critic = Model(critic_input, critic_output)
+        if bn:
+            x = BatchNormalization(momentum = 0.9)(x)
+        
+        if a == 'relu':
+            x = Activation(a)(x)
+        elif a == 'lrelu':
+            x = LeakyReLU()(x)
+        
+        return x
+
+    def TemporalNetwork(self):
+
+        input_layer = Input(shape=(self.z_dim,), name='temporal_input')
+
+        x = Reshape([1,1,self.z_dim])(input_layer)
+        x = self.conv_t(x, f=1024, k=(2,1), s=(2,1), a= 'relu', bn = True)
+        x = self.conv_t(x, f=self.z_dim, k=(2,1), s=(2,1), a= 'tanh', bn = True)
+        output_layer = Reshape([self.z_dim, self.n_bars])(x)
+
+        return Model(input_layer, output_layer)
+
+    def BarGenerator(self):
+
+        input_layer = Input(shape=(self.z_dim * 4,), name='bar_generator_input')
+
+       
+        # x = Reshape([1,1,128])(input_layer)
+        x = Dense(2*7*64)(input_layer)
+        x = BatchNormalization(momentum = 0.9)(x)
+        x = Activation('relu')(x)
+
+        x = Reshape([2,7,64])(x)
+        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
+        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
+        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
+        # x = self.conv_t(x, f=128, k=(1,7), s=(1,7), a= 'relu', bn = True)
+        x = self.conv_t(x, f=128, k=(1,3), s=(1,3), a= 'relu', bn = True)
+        x = self.conv_t(x, f=128, k=(1,3), s=(1,2), a= 'relu', bn = True)
+        x = self.conv_t(x, f=self.n_tracks, k=(1,3), s=(1,2), a= 'tanh', bn = False)
+
+        output_layer = x #Reshape([16 , 84 ,self.n_tracks])(x)
+
+        return Model(input_layer, output_layer)
 
     def _build_generator(self):
 
         ### THE generator
 
-        generator_input = Input(shape=(self.z_dim,), name='generator_input')
+        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
 
-        x = generator_input
-
-        x = Dense(np.prod(self.generator_initial_dense_layer_size), kernel_initializer = self.weight_init)(x)
-        if self.generator_batch_norm_momentum:
-            x = BatchNormalization(momentum = self.generator_batch_norm_momentum)(x)
         
-        x = self.get_activation(self.generator_activation)(x)
+        self.barGen = self.BarGenerator()
 
-        x = Reshape(self.generator_initial_dense_layer_size)(x)
+        generator_output = self.barGen(z_input)
 
-        if self.generator_dropout_rate:
-            x = Dropout(rate = self.generator_dropout_rate)(x)
-
-        for i in range(self.n_layers_generator):
-
-            if self.generator_upsample[i] == 2:
-                x = UpSampling2D()(x)
-                x = Conv2D(
-                filters = self.generator_conv_filters[i]
-                , kernel_size = self.generator_conv_kernel_size[i]
-                , padding = 'same'
-                , name = 'generator_conv_' + str(i)
-                , kernel_initializer = self.weight_init
-                )(x)
-            else:
-
-                x = Conv2DTranspose(
-                    filters = self.generator_conv_filters[i]
-                    , kernel_size = self.generator_conv_kernel_size[i]
-                    , padding = 'same'
-                    , strides = self.generator_conv_strides[i]
-                    , name = 'generator_conv_' + str(i)
-                    , kernel_initializer = self.weight_init
-                    )(x)
-
-            if i < self.n_layers_generator - 1:
-
-                if self.generator_batch_norm_momentum:
-                    x = BatchNormalization(momentum = self.generator_batch_norm_momentum)(x)
-
-                x = self.get_activation(self.generator_activation)(x)
-                
-            else:
-                x = Activation('tanh')(x)
-
-        generator_output = x
-        self.generator = Model(generator_input, generator_output)
+        self.generator = Model(z_input, generator_output)
 
 
 
@@ -247,8 +247,10 @@ class WGANGP():
         real_img = Input(shape=self.input_dim)
 
         # Fake image
-        z_disc = Input(shape=(self.z_dim,))
-        fake_img = self.generator(z_disc)
+        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
+
+
+        fake_img = self.generator(z_input)
 
         # critic determines validity of the real and fake images
         fake = self.critic(fake_img)
@@ -261,15 +263,15 @@ class WGANGP():
 
         # Use Python partial to provide loss function with additional
         # 'interpolated_samples' argument
-        partial_gp_loss = partial(self.gradient_penalty_loss,
+        self.partial_gp_loss = partial(self.gradient_penalty_loss,
                           interpolated_samples=interpolated_img)
-        partial_gp_loss.__name__ = 'gradient_penalty' # Keras requires function names
+        self.partial_gp_loss.__name__ = 'gradient_penalty' # Keras requires function names
 
-        self.critic_model = Model(inputs=[real_img, z_disc],
+        self.critic_model = Model(inputs=[real_img, z_input],
                             outputs=[valid, fake, validity_interpolated])
 
         self.critic_model.compile(
-            loss=[self.wasserstein,self.wasserstein, partial_gp_loss]
+            loss=[self.wasserstein,self.wasserstein, self.partial_gp_loss]
             ,optimizer=self.get_opti(self.critic_learning_rate)
             ,loss_weights=[1, 1, self.grad_weight]
             )
@@ -284,13 +286,15 @@ class WGANGP():
         self.set_trainable(self.generator, True)
 
         # Sampled noise for input to generator
-        model_input = Input(shape=(self.z_dim,))
+        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
+
+
         # Generate images based of noise
-        img = self.generator(model_input)
+        img = self.generator(z_input)
         # Discriminator determines validity
         model_output = self.critic(img)
         # Defines generator model
-        self.model = Model(model_input, model_output)
+        self.model = Model(z_input, model_output)
 
         self.model.compile(optimizer=self.get_opti(self.generator_learning_rate)
         , loss=self.wasserstein
@@ -312,15 +316,17 @@ class WGANGP():
             idx = np.random.randint(0, x_train.shape[0], batch_size)
             true_imgs = x_train[idx]
     
-        noise = np.random.normal(0, 1, (batch_size, self.z_dim))
+        z_noise = np.random.normal(0, 1, (batch_size, self.z_dim * 4))
 
-        d_loss = self.critic_model.train_on_batch([true_imgs, noise], [valid, fake, dummy])
+        d_loss = self.critic_model.train_on_batch([true_imgs, z_noise], [valid, fake, dummy])
         return d_loss
 
     def train_generator(self, batch_size):
         valid = np.ones((batch_size,1), dtype=np.float32)
-        noise = np.random.normal(0, 1, (batch_size, self.z_dim))
-        return self.model.train_on_batch(noise, valid)
+        
+        z_noise = np.random.normal(0, 1, (batch_size, self.z_dim * 4))
+
+        return self.model.train_on_batch(z_noise, valid)
 
 
     def train(self, x_train, batch_size, epochs, run_folder, print_every_n_batches = 10
@@ -350,8 +356,10 @@ class WGANGP():
             # If at save interval => save generated image samples
             if epoch % print_every_n_batches == 0:
                 self.sample_images(run_folder)
-                self.model.save_weights(os.path.join(run_folder, 'weights/weights-%d.h5' % (epoch)))
-                self.model.save_weights(os.path.join(run_folder, 'weights/weights.h5'))
+                self.generator.save_weights(os.path.join(run_folder, 'weights/weights-g-%d.h5' % (epoch)))
+                self.generator.save_weights(os.path.join(run_folder, 'weights/weights-g.h5'))
+                self.critic.save_weights(os.path.join(run_folder, 'weights/weights-c-%d.h5' % (epoch)))
+                self.critic.save_weights(os.path.join(run_folder, 'weights/weights-c.h5'))
                 self.save_model(run_folder)
                 
 
@@ -359,30 +367,59 @@ class WGANGP():
 
 
     def sample_images(self, run_folder):
-        r, c = 5, 5
-        noise = np.random.normal(0, 1, (r * c, self.z_dim))
-        gen_imgs = self.generator.predict(noise)
+        r = 5
 
-        #Rescale images 0 - 1
+        z_noise = np.random.normal(0, 1, (r, self.z_dim * 4))
 
-        gen_imgs = 0.5 * (gen_imgs + 1)
-        gen_imgs = np.clip(gen_imgs, 0, 1)
+        gen_scores = self.generator.predict(z_noise)
 
-        fig, axs = plt.subplots(r, c, figsize=(15,15))
-        cnt = 0
+        np.save(os.path.join(run_folder, "images/sample_%d.npy" % self.epoch), gen_scores)
 
-        for i in range(r):
-            for j in range(c):
-                axs[i,j].imshow(np.squeeze(gen_imgs[cnt, :,:,:]), cmap = 'gray_r')
-                axs[i,j].axis('off')
-                cnt += 1
-        fig.savefig(os.path.join(run_folder, "images/sample_%d.png" % self.epoch))
-        plt.close()
+        self.notes_to_midi(run_folder, gen_scores, 0)
 
 
+    def binarise_output(self, output):
+        # output is a set of scores: [batch size , steps , pitches , tracks]
+
+        max_pitches = np.argmax(output, axis = 2)
+
+        return max_pitches
+
+    def notes_to_midi(self, run_folder, output, score_num):
+
+        for score_num in range(5):
+
+            max_pitches = self.binarise_output(output)
+
+            midi_note_score = max_pitches[score_num].reshape([self.n_bars * self.n_steps_per_bar, self.n_tracks])
+            parts = stream.Score()
+
+            for i in range(self.n_tracks):
+                last_x = int(midi_note_score[:,i][0])
+                s= stream.Part()
+                dur = 0
+
+                for x in midi_note_score[:, i]:
+                    x = int(x)
+                
+                    if x != last_x:
+                        n = note.Note(last_x)
+                        n.duration = duration.Duration(dur)
+                        s.append(n)
+                        dur = 0
+
+                    last_x = x
+                    dur = dur + 0.25
+                
+                n = note.Note(last_x)
+                n.duration = duration.Duration(dur)
+                s.append(n)
+                
+                parts.append(s)
+
+            parts.write('midi', fp=os.path.join(run_folder, "samples/sample_%d_%d.midi" % (self.epoch, score_num)))
 
 
-    
     def plot_model(self, run_folder):
         plot_model(self.model, to_file=os.path.join(run_folder ,'viz/model.png'), show_shapes = True, show_layer_names = True)
         plot_model(self.critic, to_file=os.path.join(run_folder ,'viz/critic.png'), show_shapes = True, show_layer_names = True)
@@ -396,26 +433,15 @@ class WGANGP():
             with open(os.path.join(folder, 'params.pkl'), 'wb') as f:
                 pickle.dump([
                     self.input_dim
-                    , self.critic_conv_filters
-                    , self.critic_conv_kernel_size
-                    , self.critic_conv_strides
-                    , self.critic_batch_norm_momentum
-                    , self.critic_activation
-                    , self.critic_dropout_rate
                     , self.critic_learning_rate
-                    , self.generator_initial_dense_layer_size
-                    , self.generator_upsample
-                    , self.generator_conv_filters
-                    , self.generator_conv_kernel_size
-                    , self.generator_conv_strides
-                    , self.generator_batch_norm_momentum
-                    , self.generator_activation
-                    , self.generator_dropout_rate
                     , self.generator_learning_rate
                     , self.optimiser
                     , self.grad_weight
                     , self.z_dim
                     , self.batch_size
+                    , self.n_tracks
+                    , self.n_bars
+                    , self.n_steps_per_bar
                     ], f)
 
             self.plot_model(folder)
@@ -427,4 +453,23 @@ class WGANGP():
         pickle.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
 
     def load_weights(self, filepath):
-        self.model.load_weights(filepath)
+
+        filepath = filepath[:-3]
+
+        self.generator.load_weights(filepath + '-g.h5')
+        self.critic.load_weights(filepath + '-c.h5')
+
+
+    def draw_bar(self, data, score_num, part):
+        plt.imshow(data[score_num,:,:,part].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
+
+    def draw_score(self, data, score_num):
+
+
+        fig, axes = plt.subplots(ncols=1, nrows=self.n_tracks,figsize=(12,8), sharey = True, sharex = True)
+        fig.subplots_adjust(0,0,0.2,1.5,0,0)
+
+        for track in range(self.n_tracks):
+
+            axes[track].imshow(data[score_num,:,:,track].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
+    

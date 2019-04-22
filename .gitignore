@@ -7,6 +7,8 @@ utils/compose/*
 data/*
 run/*
 
+models/archive/*
+
 
 .DS_Store
 
