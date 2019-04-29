@@ -18,7 +18,7 @@ import pickle
 import matplotlib.pyplot as plt
 
 from music21 import midi
-from music21 import note, stream, duration
+from music21 import note, stream, duration, tempo
 
 
 
@@ -28,7 +28,7 @@ class RandomWeightedAverage(_Merge):
         self.batch_size = batch_size
     """Provides a (random) weighted average between real and generated image samples"""
     def _merge_function(self, inputs):
-        alpha = K.random_uniform((self.batch_size, 1, 1, 1))
+        alpha = K.random_uniform((self.batch_size, 1, 1, 1, 1))
         return (alpha * inputs[0]) + ((1 - alpha) * inputs[1])
 
 class MuseGAN():
@@ -43,6 +43,7 @@ class MuseGAN():
         , n_tracks
         , n_bars
         , n_steps_per_bar
+        , n_pitches
         ):
 
         self.name = 'gan'
@@ -59,6 +60,7 @@ class MuseGAN():
         self.n_tracks = n_tracks
         self.n_bars = n_bars
         self.n_steps_per_bar = n_steps_per_bar
+        self.n_pitches = n_pitches
 
         self.weight_init = RandomNormal(mean=0., stddev=0.02) # 'he_normal' #RandomNormal(mean=0., stddev=0.02)
         self.grad_weight = grad_weight
@@ -103,7 +105,7 @@ class MuseGAN():
         return layer
 
     def conv(self, x, f, k, s, a, p):
-        x = Conv2D(
+        x = Conv3D(
                     filters = f
                     , kernel_size = k
                     , padding = p
@@ -120,46 +122,42 @@ class MuseGAN():
 
     def _build_critic(self):
 
-        ### THE critic
         critic_input = Input(shape=self.input_dim, name='critic_input')
 
         x = critic_input
 
-        x = self.conv(x, f=128, k = (1,12), s = (1,12), a = 'lrelu', p = 'same')
-        x = self.conv(x, f=128, k = (1,7), s = (1,7), a = 'lrelu', p = 'same')
-        x = self.conv(x, f=128, k = (2,1), s = (2,1), a = 'lrelu', p = 'same')
-        x = self.conv(x, f=128, k = (2,1), s = (2,1), a = 'lrelu', p = 'same')
-        x = self.conv(x, f=256, k = (4,1), s = (2,1), a = 'lrelu', p = 'same')
-        x = self.conv(x, f=512, k = (3,1), s = (2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (2,1,1), s = (1,1,1), a = 'lrelu', p = 'valid')
+        x = self.conv(x, f=128, k = (self.n_bars - 1,1,1), s = (1,1,1), a = 'lrelu', p = 'valid')
+        
+        x = self.conv(x, f=128, k = (1,1,12), s = (1,1,12), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (1,1,7), s = (1,1,7), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (1,2,1), s = (1,2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=128, k = (1,2,1), s = (1,2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=256, k = (1,4,1), s = (1,2,1), a = 'lrelu', p = 'same')
+        x = self.conv(x, f=512, k = (1,3,1), s = (1,2,1), a = 'lrelu', p = 'same')
 
         x = Flatten()(x)
 
-        x = Dense(1024, activation='relu', kernel_initializer = self.weight_init)(x)
+        x = Dense(1024, kernel_initializer = self.weight_init)(x)
+        x = LeakyReLU()(x)
+        
         critic_output = Dense(1, activation=None, kernel_initializer = self.weight_init)(x)
         
 
         self.critic = Model(critic_input, critic_output)
 
-    def conv_t(self, x, f, k, s, a, bn):
-        # x = Conv2DTranspose(
-        #             filters = f
-        #             , kernel_size = k
-        #             , padding = 'same'
-        #             , strides = s
-        #             , kernel_initializer = self.weight_init
-        #             )(x)
-
-        x = UpSampling2D(size = s)(x)
-        x = Conv2D(
-        filters = f
-        , kernel_size = k
-        , padding = 'same'
-        , kernel_initializer = self.weight_init
-        )(x)
+    def conv_t(self, x, f, k, s, a, p, bn):
+        x = Conv2DTranspose(
+                    filters = f
+                    , kernel_size = k
+                    , padding = p
+                    , strides = s
+                    , kernel_initializer = self.weight_init
+                    )(x)
 
         if bn:
             x = BatchNormalization(momentum = 0.9)(x)
-        
+
         if a == 'relu':
             x = Activation(a)(x)
         elif a == 'lrelu':
@@ -172,9 +170,10 @@ class MuseGAN():
         input_layer = Input(shape=(self.z_dim,), name='temporal_input')
 
         x = Reshape([1,1,self.z_dim])(input_layer)
-        x = self.conv_t(x, f=1024, k=(2,1), s=(2,1), a= 'relu', bn = True)
-        x = self.conv_t(x, f=self.z_dim, k=(2,1), s=(2,1), a= 'tanh', bn = True)
-        output_layer = Reshape([self.z_dim, self.n_bars])(x)
+        x = self.conv_t(x, f=1024, k=(2,1), s=(1,1), a= 'relu', p = 'valid', bn = True)
+        x = self.conv_t(x, f=self.z_dim, k=(self.n_bars - 1,1), s=(1,1), a= 'relu', p = 'valid', bn = True)
+
+        output_layer = Reshape([self.n_bars, self.z_dim])(x)
 
         return Model(input_layer, output_layer)
 
@@ -182,44 +181,76 @@ class MuseGAN():
 
         input_layer = Input(shape=(self.z_dim * 4,), name='bar_generator_input')
 
-       
-        # x = Reshape([1,1,128])(input_layer)
-        x = Dense(2*7*64)(input_layer)
+        x = Dense(1024)(input_layer)
         x = BatchNormalization(momentum = 0.9)(x)
         x = Activation('relu')(x)
 
-        x = Reshape([2,7,64])(x)
-        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
-        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
-        x = self.conv_t(x, f=128, k=(3,1), s=(2,1), a= 'relu', bn = True)
-        # x = self.conv_t(x, f=128, k=(1,7), s=(1,7), a= 'relu', bn = True)
-        x = self.conv_t(x, f=128, k=(1,3), s=(1,3), a= 'relu', bn = True)
-        x = self.conv_t(x, f=128, k=(1,3), s=(1,2), a= 'relu', bn = True)
-        x = self.conv_t(x, f=self.n_tracks, k=(1,3), s=(1,2), a= 'tanh', bn = False)
+        x = Reshape([2,1,512])(x)
+        x = self.conv_t(x, f=512, k=(2,1), s=(2,1), a= 'relu',  p = 'same', bn = True)
+        x = self.conv_t(x, f=256, k=(2,1), s=(2,1), a= 'relu', p = 'same', bn = True)
+        x = self.conv_t(x, f=256, k=(2,1), s=(2,1), a= 'relu', p = 'same', bn = True)
+        x = self.conv_t(x, f=256, k=(1,7), s=(1,7), a= 'relu', p = 'same',bn = True)
+        x = self.conv_t(x, f=1, k=(1,12), s=(1,12), a= 'tanh', p = 'same', bn = False)
 
-        output_layer = x #Reshape([16 , 84 ,self.n_tracks])(x)
+        output_layer = Reshape([1, self.n_steps_per_bar , self.n_pitches ,1])(x)
 
         return Model(input_layer, output_layer)
 
     def _build_generator(self):
 
-        ### THE generator
+        chords_input = Input(shape=(self.z_dim,), name='chords_input')
+        style_input = Input(shape=(self.z_dim,), name='style_input')
+        melody_input = Input(shape=(self.n_tracks, self.z_dim), name='melody_input')
+        groove_input = Input(shape=(self.n_tracks, self.z_dim), name='groove_input')
 
-        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
-
+        # CHORDS -> TEMPORAL NETWORK
+        self.chords_tempNetwork = self.TemporalNetwork()
+        self.chords_tempNetwork.name = 'temporal_network'
+        chords_over_time = self.chords_tempNetwork(chords_input) # [n_bars, z_dim]
         
-        self.barGen = self.BarGenerator()
+        # MELODY -> TEMPORAL NETWORK
+        melody_over_time = [None] * self.n_tracks # list of n_tracks [n_bars, z_dim] tensors
+        self.melody_tempNetwork = [None] * self.n_tracks
+        for track in range(self.n_tracks):
+            self.melody_tempNetwork[track] = self.TemporalNetwork()
+            melody_track = Lambda(lambda x: x[:,track,:])(melody_input)
+            melody_over_time[track] = self.melody_tempNetwork[track](melody_track)
 
-        generator_output = self.barGen(z_input)
 
-        self.generator = Model(z_input, generator_output)
+        # CREATE BAR GENERATOR FOR EACH TRACK
+        self.barGen = [None] * self.n_tracks
+        for track in range(self.n_tracks):
+            self.barGen[track] = self.BarGenerator()
+
+        # CREATE OUTPUT FOR EVERY TRACK AND BAR
+        bars_output = [None] * self.n_bars
+        for bar in range(self.n_bars):
+            track_output = [None] * self.n_tracks
+
+            c = Lambda(lambda x: x[:,bar,:], name = 'chords_input_bar_' + str(bar))(chords_over_time)  # [z_dim]
+            s = style_input # [z_dim]
+
+            for track in range(self.n_tracks):
+
+                m = Lambda(lambda x: x[:,bar,:])(melody_over_time[track]) # [z_dim]
+                g = Lambda(lambda x: x[:,track,:])(groove_input) # [z_dim]
+                
+                z_input = Concatenate(axis = 1, name = 'total_input_bar_{}_track_{}'.format(bar, track))([c,s,m,g])
+                
+                track_output[track] = self.barGen[track](z_input)
+
+            bars_output[bar] = Concatenate(axis = -1)(track_output)
+
+        generator_output = Concatenate(axis = 1, name = 'concat_bars')(bars_output)
+
+        self.generator = Model([chords_input, style_input, melody_input, groove_input], generator_output)
 
 
 
 
     def get_opti(self, lr):
         if self.optimiser == 'adam':
-            opti = Adam(lr=lr, beta_1=0.5)
+            opti = Adam(lr=lr, beta_1=0.5, beta_2 = 0.9)
         elif self.optimiser == 'rmsprop':
             opti = RMSprop(lr=lr)
         else:
@@ -247,10 +278,13 @@ class MuseGAN():
         real_img = Input(shape=self.input_dim)
 
         # Fake image
-        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
+        chords_input = Input(shape=(self.z_dim,), name='chords_input')
+        style_input = Input(shape=(self.z_dim,), name='style_input')
+        melody_input = Input(shape=(self.n_tracks, self.z_dim), name='melody_input')
+        groove_input = Input(shape=(self.n_tracks, self.z_dim), name='groove_input')
 
 
-        fake_img = self.generator(z_input)
+        fake_img = self.generator([chords_input, style_input, melody_input, groove_input])
 
         # critic determines validity of the real and fake images
         fake = self.critic(fake_img)
@@ -267,7 +301,7 @@ class MuseGAN():
                           interpolated_samples=interpolated_img)
         self.partial_gp_loss.__name__ = 'gradient_penalty' # Keras requires function names
 
-        self.critic_model = Model(inputs=[real_img, z_input],
+        self.critic_model = Model(inputs=[real_img, chords_input, style_input, melody_input, groove_input],
                             outputs=[valid, fake, validity_interpolated])
 
         self.critic_model.compile(
@@ -286,15 +320,18 @@ class MuseGAN():
         self.set_trainable(self.generator, True)
 
         # Sampled noise for input to generator
-        z_input = Input(shape=(self.z_dim * 4,), name='z_input')
+        chords_input = Input(shape=(self.z_dim,), name='chords_input')
+        style_input = Input(shape=(self.z_dim,), name='style_input')
+        melody_input = Input(shape=(self.n_tracks, self.z_dim), name='melody_input')
+        groove_input = Input(shape=(self.n_tracks, self.z_dim), name='groove_input')
 
 
         # Generate images based of noise
-        img = self.generator(z_input)
+        img = self.generator([chords_input, style_input, melody_input, groove_input])
         # Discriminator determines validity
         model_output = self.critic(img)
         # Defines generator model
-        self.model = Model(z_input, model_output)
+        self.model = Model([chords_input, style_input, melody_input, groove_input], model_output)
 
         self.model.compile(optimizer=self.get_opti(self.generator_learning_rate)
         , loss=self.wasserstein
@@ -315,18 +352,24 @@ class MuseGAN():
         else:
             idx = np.random.randint(0, x_train.shape[0], batch_size)
             true_imgs = x_train[idx]
-    
-        z_noise = np.random.normal(0, 1, (batch_size, self.z_dim * 4))
+        
+        chords_noise = np.random.normal(0, 1, (batch_size, self.z_dim))
+        style_noise = np.random.normal(0, 1, (batch_size, self.z_dim))
+        melody_noise = np.random.normal(0, 1, (batch_size, self.n_tracks, self.z_dim))
+        groove_noise = np.random.normal(0, 1, (batch_size, self.n_tracks, self.z_dim))
 
-        d_loss = self.critic_model.train_on_batch([true_imgs, z_noise], [valid, fake, dummy])
+        d_loss = self.critic_model.train_on_batch([true_imgs, chords_noise, style_noise,melody_noise,groove_noise], [valid, fake, dummy])
         return d_loss
 
     def train_generator(self, batch_size):
         valid = np.ones((batch_size,1), dtype=np.float32)
         
-        z_noise = np.random.normal(0, 1, (batch_size, self.z_dim * 4))
+        chords_noise = np.random.normal(0, 1, (batch_size, self.z_dim))
+        style_noise = np.random.normal(0, 1, (batch_size, self.z_dim))
+        melody_noise = np.random.normal(0, 1, (batch_size, self.n_tracks, self.z_dim))
+        groove_noise = np.random.normal(0, 1, (batch_size, self.n_tracks, self.z_dim))
 
-        return self.model.train_on_batch(z_noise, valid)
+        return self.model.train_on_batch([chords_noise, style_noise,melody_noise,groove_noise], valid)
 
 
     def train(self, x_train, batch_size, epochs, run_folder, print_every_n_batches = 10
@@ -349,18 +392,28 @@ class MuseGAN():
             print ("%d (%d, %d) [D loss: (%.1f)(R %.1f, F %.1f, G %.1f)] [G loss: %.1f]" % (epoch, critic_loops, 1, d_loss[0], d_loss[1],d_loss[2],d_loss[3],g_loss))
             
 
-
             self.d_losses.append(d_loss)
             self.g_losses.append(g_loss)
 
             # If at save interval => save generated image samples
             if epoch % print_every_n_batches == 0:
                 self.sample_images(run_folder)
-                self.generator.save_weights(os.path.join(run_folder, 'weights/weights-g-%d.h5' % (epoch)))
+                
                 self.generator.save_weights(os.path.join(run_folder, 'weights/weights-g.h5'))
-                self.critic.save_weights(os.path.join(run_folder, 'weights/weights-c-%d.h5' % (epoch)))
+                
                 self.critic.save_weights(os.path.join(run_folder, 'weights/weights-c.h5'))
+
+                # with open(os.path.join(run_folder,"generator.json", "w") as json_file:
+                #     json_file.write(self.generator.to_json())
+                
+                # with open(os.path.join(run_folder,"critic.json", "w") as json_file:
+                #     json_file.write(self.critic.to_json())
+
                 self.save_model(run_folder)
+
+            if epoch % 500 == 0:
+                self.generator.save_weights(os.path.join(run_folder, 'weights/weights-g-%d.h5' % (epoch)))
+                self.critic.save_weights(os.path.join(run_folder, 'weights/weights-c-%d.h5' % (epoch)))
                 
 
             self.epoch+=1
@@ -369,9 +422,12 @@ class MuseGAN():
     def sample_images(self, run_folder):
         r = 5
 
-        z_noise = np.random.normal(0, 1, (r, self.z_dim * 4))
+        chords_noise = np.random.normal(0, 1, (r, self.z_dim))
+        style_noise = np.random.normal(0, 1, (r, self.z_dim))
+        melody_noise = np.random.normal(0, 1, (r, self.n_tracks, self.z_dim))
+        groove_noise = np.random.normal(0, 1, (r, self.n_tracks, self.z_dim))
 
-        gen_scores = self.generator.predict(z_noise)
+        gen_scores = self.generator.predict([chords_noise, style_noise, melody_noise, groove_noise])
 
         np.save(os.path.join(run_folder, "images/sample_%d.npy" % self.epoch), gen_scores)
 
@@ -381,28 +437,30 @@ class MuseGAN():
     def binarise_output(self, output):
         # output is a set of scores: [batch size , steps , pitches , tracks]
 
-        max_pitches = np.argmax(output, axis = 2)
+        max_pitches = np.argmax(output, axis = 3)
 
         return max_pitches
 
-    def notes_to_midi(self, run_folder, output, score_num):
+    def notes_to_midi(self, run_folder, output, filename = None):
 
-        for score_num in range(5):
+        for score_num in range(len(output)):
 
             max_pitches = self.binarise_output(output)
 
             midi_note_score = max_pitches[score_num].reshape([self.n_bars * self.n_steps_per_bar, self.n_tracks])
             parts = stream.Score()
+            parts.append(tempo.MetronomeMark(number= 66))
 
             for i in range(self.n_tracks):
                 last_x = int(midi_note_score[:,i][0])
                 s= stream.Part()
                 dur = 0
+                
 
-                for x in midi_note_score[:, i]:
+                for idx, x in enumerate(midi_note_score[:, i]):
                     x = int(x)
                 
-                    if x != last_x:
+                    if (x != last_x or idx % 4 == 0) and idx > 0:
                         n = note.Note(last_x)
                         n.duration = duration.Duration(dur)
                         s.append(n)
@@ -417,7 +475,10 @@ class MuseGAN():
                 
                 parts.append(s)
 
-            parts.write('midi', fp=os.path.join(run_folder, "samples/sample_%d_%d.midi" % (self.epoch, score_num)))
+            if filename is None:
+                parts.write('midi', fp=os.path.join(run_folder, "samples/sample_{}_{}.midi".format(self.epoch, score_num)))
+            else:
+                parts.write('midi', fp=os.path.join(run_folder, "samples/{}.midi".format(filename)))
 
 
     def plot_model(self, run_folder):
@@ -442,6 +503,7 @@ class MuseGAN():
                     , self.n_tracks
                     , self.n_bars
                     , self.n_steps_per_bar
+                    , self.n_pitches
                     ], f)
 
             self.plot_model(folder)
@@ -450,26 +512,33 @@ class MuseGAN():
         self.model.save(os.path.join(run_folder, 'model.h5'))
         self.critic.save(os.path.join(run_folder, 'critic.h5'))
         self.generator.save(os.path.join(run_folder, 'generator.h5'))
-        pickle.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
+        # pickle.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
 
-    def load_weights(self, filepath):
+    def load_weights(self, run_folder, epoch=None):
 
-        filepath = filepath[:-3]
+        if epoch is None:
 
-        self.generator.load_weights(filepath + '-g.h5')
-        self.critic.load_weights(filepath + '-c.h5')
+            self.generator.load_weights(os.path.join(run_folder, 'weights', 'weights-g.h5'))
+            self.critic.load_weights(os.path.join(run_folder, 'weights', 'weights-c.h5'))
+        else:
+            self.generator.load_weights(os.path.join(run_folder, 'weights', 'weights-g-{}.h5'.format(epoch)))
+            self.critic.load_weights(os.path.join(run_folder, 'weights', 'weights-c-{}.h5'.format(epoch)))
 
 
-    def draw_bar(self, data, score_num, part):
-        plt.imshow(data[score_num,:,:,part].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
+    def draw_bar(self, data, score_num, bar, part):
+        plt.imshow(data[score_num,bar,:,:,part].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
 
     def draw_score(self, data, score_num):
 
 
-        fig, axes = plt.subplots(ncols=1, nrows=self.n_tracks,figsize=(12,8), sharey = True, sharex = True)
+        fig, axes = plt.subplots(ncols=self.n_bars, nrows=self.n_tracks,figsize=(12,8), sharey = True, sharex = True)
         fig.subplots_adjust(0,0,0.2,1.5,0,0)
 
-        for track in range(self.n_tracks):
+        for bar in range(self.n_bars):
+            for track in range(self.n_tracks):
 
-            axes[track].imshow(data[score_num,:,:,track].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
+                if self.n_bars > 1:
+                    axes[track, bar].imshow(data[score_num,bar,:,:,track].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
+                else:
+                    axes[track].imshow(data[score_num,bar,:,:,track].transpose([1,0]), origin='lower', cmap = 'Greys', vmin=-1, vmax=1)
     

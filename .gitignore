@@ -6,6 +6,7 @@ utils/compose/*
 
 data/*
 run/*
+archive/*
 
 models/archive/*
 
