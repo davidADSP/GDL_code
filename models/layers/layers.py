@@ -1,11 +1,10 @@
-'''
-Custom Keras layers used on the pastiche model.
-'''
+
 
 import tensorflow as tf
 import keras
 
 from keras.layers import Layer, InputSpec
+import keras.backend as K
 
 class ReflectionPadding2D(Layer):
     def __init__(self, padding=(1, 1), **kwargs):
@@ -20,3 +19,4 @@ class ReflectionPadding2D(Layer):
     def call(self, x, mask=None):
         w_pad,h_pad = self.padding
         return tf.pad(x, [[0,0], [h_pad,h_pad], [w_pad,w_pad], [0,0] ], 'REFLECT')
+

@@ -351,6 +351,7 @@ class WGANGP():
             if epoch % print_every_n_batches == 0:
                 self.sample_images(run_folder)
                 self.model.save_weights(os.path.join(run_folder, 'weights/weights-%d.h5' % (epoch)))
+                self.model.save_weights(os.path.join(run_folder, 'weights/weights.h5'))
                 self.save_model(run_folder)
                 
 
