@@ -2,7 +2,9 @@
 ### Teaching Machines to paint, write, compose and play
 
 The official code repository for examples in the O'Reilly book 'Generative Deep Learning'
-This repository will be constantly updated as new chapters are relased.
+
+https://learning.oreilly.com/library/view/generative-deep-learning/9781492041931/
+https://www.amazon.com/Generative-Deep-Learning-Teaching-Machines/dp/1492041947/ref=sr_1_1
 
 ## Structure
 
@@ -15,20 +17,24 @@ The `run` folder stores output from the generative models (chapter 3 onwards)
 The `utils` folder stores useful functions that are sourced by the main notebooks
 
 ## Book Contents
-
-* Chapter 1: Generative Modelling
+Part 1: Introduction to Generative Deep Learning
+* Chapter 1: Generative Modeling
 * Chapter 2: Deep Learning
 * Chapter 3: Variational Autoencoders
 * Chapter 4: Generative Adversarial Networks
+
+Part 2: Teaching Machines to Paint, Write, Compose and Play
 * Chapter 5: Paint
 * Chapter 6: Write
 * Chapter 7: Compose
 * Chapter 8: Play
-* Chapter 9: Conclusion
+* Chapter 9: The Future of Generative Modeling
+* Chapter 10: Conclusion
+
 
 ## Getting started
 
-To get started, first install the required library inside a virtual environment:
+To get started, first install the required libraries inside a virtual environment:
 
 `pip install -r requirements.txt`
  
