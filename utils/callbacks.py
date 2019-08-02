@@ -17,7 +17,7 @@ class CustomCallback(Callback):
             z_new = np.random.normal(size = (1,self.vae.z_dim))
             reconst = self.vae.decoder.predict(np.array(z_new))[0].squeeze()
 
-            filepath = os.path.join(self.run_folder, 'images/img_' + str(self.epoch).zfill(3) + '_' + str(batch) + '.jpg')
+            filepath = os.path.join(self.run_folder, 'images', 'img_' + str(self.epoch).zfill(3) + '_' + str(batch) + '.jpg')
             if len(reconst.shape) == 2:
                 plt.imsave(filepath, reconst, cmap='gray_r')
             else:
