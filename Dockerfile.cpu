@@ -1,5 +1,5 @@
 # See all tag variants at https://hub.docker.com/r/tensorflow/tensorflow/tags/
-# build with `ln -sf Dockerfile.cpu Dockerfile && docker build --network=host -t {container-name} .`
+# build with `ln -sf Dockerfile.cpu Dockerfile && docker build --network=host -t gdl-image-cpu .`
 FROM tensorflow/tensorflow:latest-py3-jupyter
 
 ## modify below
