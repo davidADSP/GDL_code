@@ -10,6 +10,10 @@ ARG groupid=1000
 ARG userid=1000
 ## end modify
 
+RUN apt-get update && apt-get install -y \
+    graphviz \
+    libgraphviz-dev
+
 COPY ./requirements.txt /
 RUN python3 -m pip install --upgrade pip
 RUN pip install -r /requirements.txt
