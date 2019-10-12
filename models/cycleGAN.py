@@ -2,18 +2,18 @@ from __future__ import print_function, division
 import scipy
 
 from keras_contrib.layers.normalization import InstanceNormalization
-from keras.layers import Input, Dense, Reshape, Flatten, Dropout, Concatenate
-from keras.layers import BatchNormalization, Activation, ZeroPadding2D, Add
-from keras.layers.advanced_activations import LeakyReLU, ELU
-from keras.layers.convolutional import UpSampling2D, Conv2D, Conv2DTranspose
-from keras.layers.merge import add
+from tensorflow.keras.layers import Input, Dense, Reshape, Flatten, Dropout, Concatenate
+from tensorflow.keras.layers import BatchNormalization, Activation, ZeroPadding2D, Add
+from tensorflow.keras.layers.advanced_activations import LeakyReLU, ELU
+from tensorflow.keras.layers.convolutional import UpSampling2D, Conv2D, Conv2DTranspose
+from tensorflow.keras.layers.merge import add
 from models.layers.layers import ReflectionPadding2D
-from keras.models import Sequential, Model
-from keras.initializers import RandomNormal
-from keras.optimizers import Adam
-from keras import backend as K
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.initializers import RandomNormal
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import backend as K
 
-from keras.utils import plot_model
+from tensorflow.keras.utils import plot_model
 
 import datetime
 import matplotlib.pyplot as plt
@@ -420,8 +420,6 @@ class CycleGAN():
         self.d_B.save(os.path.join(run_folder, 'd_B.h5') )
         self.g_BA.save(os.path.join(run_folder, 'g_BA.h5')  )
         self.g_AB.save(os.path.join(run_folder, 'g_AB.h5') )
-
-        pkl.dump(self, open( os.path.join(run_folder, "obj.pkl"), "wb" ))
 
     def load_weights(self, filepath):
         self.combined.load_weights(filepath)

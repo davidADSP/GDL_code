@@ -1,8 +1,8 @@
 import pickle
 import os
 
-from keras.datasets import mnist, cifar100,cifar10
-from keras.preprocessing.image import ImageDataGenerator, load_img, save_img, img_to_array
+from tensorflow.keras.datasets import mnist, cifar100,cifar10
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, save_img, img_to_array
 
 import pandas as pd
 
@@ -13,9 +13,9 @@ import h5py
 import scipy
 from glob import glob
 
-from keras.applications import vgg19
-from keras import backend as K
-from keras.utils import to_categorical
+from tensorflow.keras.applications import vgg19
+from tensorflow.keras import backend as K
+from tensorflow.keras.utils import to_categorical
 
 import pdb
 

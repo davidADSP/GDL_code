@@ -4,14 +4,14 @@ import glob
 
 from music21 import corpus, converter
 
-from keras.layers import LSTM, Input, Dropout, Dense, Activation, Embedding, Concatenate, Reshape
-from keras.layers import Flatten, RepeatVector, Permute, TimeDistributed
-from keras.layers import Multiply, Lambda, Softmax
+from tensorflow.keras.layers import LSTM, Input, Dropout, Dense, Activation, Embedding, Concatenate, Reshape
+from tensorflow.keras.layers import Flatten, RepeatVector, Permute, TimeDistributed
+from tensorflow.keras.layers import Multiply, Lambda, Softmax
 import keras.backend as K 
-from keras.models import Model
-from keras.optimizers import RMSprop
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import RMSprop
 
-from keras.utils import np_utils
+from tensorflow.keras.utils import np_utils
 
 def get_music_list(data_folder):
     
