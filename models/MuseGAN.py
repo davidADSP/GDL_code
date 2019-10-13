@@ -436,7 +436,7 @@ class MuseGAN():
 
         np.save(os.path.join(run_folder, "images/sample_%d.npy" % self.epoch), gen_scores)
 
-        self.notes_to_midi(run_folder, gen_scores, 0)
+        self.notes_to_midi(run_folder, gen_scores)
 
 
     def binarise_output(self, output):
