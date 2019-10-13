@@ -20,6 +20,10 @@ import os
 import pickle
 import matplotlib.pyplot as plt
 
+def grad(y, x):
+    V = Lambda(lambda z: K.gradients(
+        z[0], z[1]), output_shape=[1])([y, x])
+    return V
 
 class RandomWeightedAverage(Layer):
     def __init__(self, batch_size):
@@ -97,17 +101,13 @@ class WGANGP():
 
         self._build_adversarial()
 
-    @tf.function
+            
+
     def gradient_penalty_loss(self, y_true, y_pred, interpolated_samples):
         """
         Computes gradient penalty based on prediction and weighted real / fake samples
         """
-        print(y_pred)
-        print(interpolated_samples)
-        print(K.gradients(y_pred, interpolated_samples))
-        gradients = K.gradients(y_pred, interpolated_samples)[0]
-
-        print(gradients)
+        gradients = grad(y_pred, interpolated_samples)[0]
 
         # compute the euclidean norm by squaring ...
         gradients_sqr = K.square(gradients)
