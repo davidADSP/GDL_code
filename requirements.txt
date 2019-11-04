@@ -27,7 +27,6 @@ jupyter-console==6.0.0
 jupyter-core==4.6.0
 Keras==2.3.1
 Keras-Applications==1.0.8
-keras-contrib==2.0.8
 Keras-Preprocessing==1.1.0
 kiwisolver==1.1.0
 Markdown==3.1.1
@@ -74,7 +73,6 @@ tensorflow-estimator==2.0.0
 termcolor==1.1.0
 terminado==0.8.2
 testpath==0.4.2
-tf-keras-contrib==2.0.8
 tornado==6.0.3
 traitlets==4.3.3
 wcwidth==0.1.7
