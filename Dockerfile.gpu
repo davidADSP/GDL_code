@@ -12,7 +12,8 @@ ARG userid=1000
 
 RUN apt-get update && apt-get install -y \
     graphviz \
-    libgraphviz-dev
+    libgraphviz-dev \
+    git
 
 COPY ./requirements.txt /
 RUN python3 -m pip install --upgrade pip
