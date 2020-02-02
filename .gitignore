@@ -4,7 +4,7 @@ utils/data
 
 # personal
 .vscode
-
+model/__pycache__
 
 run/gan/*
 run/compose/*

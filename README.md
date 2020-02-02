@@ -48,6 +48,7 @@ To make the codebase works in Windows, do the following:
     >> import torch
     >> torch.cuda.is_available()
     ```
+11. ```pip install torchsummary```
 
 ## Tensorflow
 
