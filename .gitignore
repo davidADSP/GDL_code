@@ -1,3 +1,10 @@
+# dataset
+data/MNIST
+utils/data
+
+# personal
+.vscode
+
 
 run/gan/*
 run/compose/*
