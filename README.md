@@ -11,13 +11,43 @@ https://www.amazon.com/Generative-Deep-Learning-Teaching-Machines/dp/1492041947/
 Reimplement "Deep Generative Learning" in PyTorch.
 
 ### [Alex] Notes
-To make the codebase works in Windows, the following are done:
-- ```conda``` install the following (instead of ```pip```):
-  - tensorflow
-  - keras
-  - keras-contrib
-  - pyYAML
-- also ```conda``` install pytorch, torchvision in the same environment
+To make the codebase works in Windows, do the following:
+1. ```conda install matplotlib```
+2. ```conda install -c anaconda pillow==6.2.1```  
+    - stepwise sanity check: 
+    ```
+    >> import matplotlib.pyplot as plt
+    >> plt.plot([1,2])
+    >> plt.savefig('test.jpg)
+    ``` 
+3. ```conda install graphviz``` and add graphviz bin to ```PATH```
+4. ```conda install -c anaconda pyyaml```
+5. ```conda install -c anaconda tensorflow-gpu==1.14.0```  
+    - stepwise sanity check:
+    ```
+    >> import tensorflow as tf
+    >> tf.test.is_gpu_available()
+    ```
+6. ```conda install -c conda-forge google-pasta```
+7. ```conda install -c conda-forge keras==2.2.4```
+8. install ```keras-contrib```:
+    ```
+    >> git clone https://www.github.com/keras-team/keras-contrib.git
+    >> cd keras-contrib
+    >> python setup.py install
+    ``` 
+    - stepwise sanity check:
+    ```
+    >> from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+    ```
+9. install the rest in ```pip```: ```pip install -r requirement.txt```:  
+    - stepwise sanity check: make sure you can run through ```03_01_autoencoder_train.ipynb``` (keras version)
+10. ```conda install pytorch torchvision -c pytorch```:  
+    - stepwise sanity check:
+    ```
+    >> import torch
+    >> torch.cuda.is_available()
+    ```
 
 ## Tensorflow
 

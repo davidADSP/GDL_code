@@ -26,7 +26,6 @@ jupyter-core==4.4.0
 kiwisolver==1.0.1
 Markdown==3.0.1
 MarkupSafe==1.1.0
-matplotlib==3.0.2
 mistune==0.8.4
 music21==5.5.0
 nbconvert==5.4.1
@@ -39,7 +38,6 @@ pandocfilters==1.4.2
 parso==0.3.4
 pexpect==4.6.0
 pickleshare==0.7.5
-Pillow==5.4.1
 prometheus-client==0.6.0
 prompt-toolkit==2.0.9
 protobuf==3.6.1
