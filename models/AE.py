@@ -13,7 +13,6 @@ import json
 import os
 import pickle
 
-
 class Autoencoder():
     def __init__(self
         , input_dim

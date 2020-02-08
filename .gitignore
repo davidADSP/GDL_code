@@ -1,6 +1,7 @@
 # dataset
 data/MNIST
 utils/data
+unit_test
 
 # personal
 .vscode
