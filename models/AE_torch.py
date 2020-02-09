@@ -5,11 +5,45 @@ REFERENCE:
 3. [github] torch-summary repo: https://github.com/sksq96/pytorch-summary
     - can't handle single module: https://github.com/sksq96/pytorch-summary/issues/9
     - [medium] tutorial: https://medium.com/@umerfarooq_26378/model-summary-in-pytorch-b5a1e4b64d25
+4. [github] visualization on convolution / convolution transpose operation: https://github.com/vdumoulin/conv_arithmetic
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pdb
+from torchsummary import summary
+
+
+class TransConvBlock(nn.Module):
+    def __init__(
+            self, channel_in, channel_out, 
+            kernel_size, stride, padding, 
+            use_batch_norm, use_dropout
+        ):
+        super(TransConvBlock, self).__init__()
+        pad_n = kernel_size // 2
+        # output_padding control additional padding
+        output_pad_n = 0 if stride == 1 else 1
+        self.trans_conv = nn.ConvTranspose2d(in_channels = channel_in, out_channels = channel_out, 
+                                             kernel_size = kernel_size, stride = stride, 
+                                             padding = pad_n, output_padding = output_pad_n)
+        self.leaky_relu = nn.LeakyReLU()
+        # follow momentum default from keras (i.e. 0.99)
+        self.bn = None
+        if use_batch_norm:
+            self.bn = nn.BatchNorm2d(num_features = channel_out, momentum = 0.99)
+        self.dropout = None
+        if use_dropout:
+            self.dropout = nn.Dropout(p = 0.25)
+
+    def forward(self, x):
+        out = self.trans_conv(x)
+        out = self.leaky_relu(out)
+        if self.bn is not None:
+            out = self.bn(out)
+        if self.dropout is not None:
+            out = self.dropout(out)
+        return out
 
 
 class ConvBlock(nn.Module):
@@ -64,16 +98,20 @@ class Encoder(nn.Module):
                             use_batch_norm, use_dropout)
             blk_ls.append(blk)
         self.blks = nn.ModuleList(blk_ls)
-        linear_input = self._get_conv_output(*input_shape)
+        # torch.Size object
+        self.shape_before_flattening = self._get_conv_output(*input_shape)
         # bottleneck
-        self.flatten = nn.Flatten()
-        self.linear = nn.Linear(in_features = linear_input, out_features = z_dim)
+        self.linear = nn.Linear(in_features = self.shape_before_flattening.numel(), 
+                                out_features = z_dim)
 
     def _get_conv_output(self, c, h, w):
+        """
+        excluding batch size
+        """
         # don't do autograd
         t = torch.rand(1, c, h, w, requires_grad = False)
         out = self._pseudo_forward(t)
-        return out.view(out.size(0), -1).shape[1]
+        return out.shape[1:]
 
     def _pseudo_forward(self, x):
         """
@@ -88,52 +126,82 @@ class Encoder(nn.Module):
         out = x
         for blk in self.blks:
             out = blk(out)
-        out = self.flatten(out)
+        # reshape
+        out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
         
 
 class Decoder(nn.Module):
     def __init__(
-        self, z_dim, 
-        decoder_conv_t_filters, decoder_conv_t_kernel_size, decoder_conv_t_strides,
-        use_batch_norm, use_dropout
+            self, reshape_shape, 
+            conv_filters, conv_kernel_size, conv_strides,
+            z_dim, use_batch_norm, use_dropout
         ):
+        """
+        reshape_shape -- torch.Size, shape to be reshaped after linear layer
+        """
+        n = len(conv_kernel_size)
+        assert len(conv_filters) == n, '[ERROR] encoder_conv_filters and encoder_conv_kernel_size must have same length'
+        assert len(conv_strides) == n, '[ERROR] encoder_conv_kernel_size and encoder_conv_strides must have same length'
+        assert isinstance(reshape_shape, torch.Size), '[ERROR] reshape_shape must be torch.Size'
         super(Decoder, self).__init__()
-        self.z_dim = z_dim
-        self.decoder_conv_t_filters = decoder_conv_t_filters
-        self.decoder_conv_t_kernel_size = decoder_conv_t_kernel_size
-        self.decoder_conv_t_strides = decoder_conv_t_strides
-
-        self.use_batch_norm = use_batch_norm
-        self.use_dropout = use_dropout
-        
-        self.n_layers_encoder = len(decoder_conv_t_filters)
+        self.reshape_shape = reshape_shape
+        self.linear = nn.Linear(in_features = z_dim, out_features = reshape_shape.numel())
+        blk_ls = []
+        for i, (channel_out, kernel_size, stride) in enumerate(zip(conv_filters, conv_kernel_size, conv_strides)):
+            channel_in = reshape_shape[0] if i == 0 else conv_filters[i - 1]
+            blk = TransConvBlock(channel_in, channel_out, kernel_size, 
+                                 stride, kernel_size // 2, 
+                                 use_batch_norm, use_dropout)
+            blk_ls.append(blk)
+        self.blks = nn.ModuleList(blk_ls)
 
     def forward(self, x):
-        pass
+        out = self.linear(x)
+        out = out.view(out.size(0), *tuple(self.reshape_shape))
+        for blk in self.blks:
+            out = blk(out)
+        return out
 
 
 class Autoencoder(nn.Module):
     def __init__(
-        self, input_dim, 
+        self, input_shape, 
         encoder_conv_filters, encoder_conv_kernel_size, encoder_conv_strides,
         decoder_conv_t_filters, decoder_conv_t_kernel_size, decoder_conv_t_strides,
         z_dim, use_batch_norm = False, use_dropout = False
         ):
+        """
+        input_shape -- tuple, (C, H, W)
+        """
         super(Autoencoder, self).__init__()
+        self.input_shape = input_shape
+        self.latent_shape = (z_dim, )
         self.encoder = Encoder(
-            input_dim, 
-            encoder_conv_filters, encoder_conv_kernel_size, encoder_conv_strides,
-            use_batch_norm, use_dropout
-        )
+                            input_shape, 
+                            encoder_conv_filters, encoder_conv_kernel_size, 
+                            encoder_conv_strides, z_dim, 
+                            use_batch_norm, use_dropout
+                        )
         self.decoder = Decoder(
-            z_dim, 
-            decoder_conv_t_filters, decoder_conv_t_kernel_size, decoder_conv_t_strides,
-            use_batch_norm, use_dropout
-        )
+                            self.encoder.shape_before_flattening,
+                            decoder_conv_t_filters, decoder_conv_t_kernel_size, 
+                            decoder_conv_t_strides, z_dim, 
+                            use_batch_norm, use_dropout
+                        )
 
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+    
+    def encoder_summary(self):
+        summary(self.encoder, input_size = self.input_shape)
+
+    def decoder_summary(self):
+        summary(self.decoder, input_size = self.latent_shape)
+
+    def autoencoder_summary(self):
+        summary(self, input_size = self.input_shape)
+
