@@ -1,14 +1,6 @@
 # Generative Deep Learning
-### Teaching Machines to paint, write, compose and play
-
-The official code repository for examples in the O'Reilly book 'Generative Deep Learning'
-
-https://learning.oreilly.com/library/view/generative-deep-learning/9781492041931/
-
-https://www.amazon.com/Generative-Deep-Learning-Teaching-Machines/dp/1492041947/ref=sr_1_1
-
 ### Objective
-Reimplement "Deep Generative Learning" in PyTorch.
+Reimplement current demos of "Deep Generative Learning" in PyTorch.
 
 ### [Temporary Draft] Notes
 To make the codebase works in Windows, do the following:
