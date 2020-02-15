@@ -1,4 +1,8 @@
 """
+DIFFERENCE WITH KERAS VERSION:
+1. no callbacks yet
+2. no plot of model architecture
+
 REFERENCE:
 1. [pytorch] autoencoder build: https://medium.com/@vaibhaw.vipul/building-autoencoder-in-pytorch-34052d1d280c
 2. [keras] UpSampling2D, Conv2DTranspose difference with simple code: https://machinelearningmastery.com/upsampling-and-transpose-convolution-layers-for-generative-adversarial-networks/
@@ -11,6 +15,7 @@ import os
 import sys
 
 import numpy as np
+from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 
 import torch
@@ -140,14 +145,15 @@ class Encoder(nn.Module):
         
 
 class Decoder(nn.Module):
+    """
+    input:
+        reshape_shape -- torch.Size, shape to be reshaped after linear layer
+    """    
     def __init__(
             self, reshape_shape, 
             conv_filters, conv_kernel_size, conv_strides,
             z_dim, use_batch_norm, use_dropout
         ):
-        """
-        reshape_shape -- torch.Size, shape to be reshaped after linear layer
-        """
         n = len(conv_kernel_size)
         assert len(conv_filters) == n, '[ERROR] encoder_conv_filters and encoder_conv_kernel_size must have same length'
         assert len(conv_strides) == n, '[ERROR] encoder_conv_kernel_size and encoder_conv_strides must have same length'
@@ -173,15 +179,17 @@ class Decoder(nn.Module):
 
 
 class Autoencoder(nn.Module):
+    """
+    input:
+        input_shape -- tuple, (C, H, W)
+        z_dim -- int, dimension of latent space
+    """
     def __init__(
         self, input_shape, 
         encoder_conv_filters, encoder_conv_kernel_size, encoder_conv_strides,
         decoder_conv_t_filters, decoder_conv_t_kernel_size, decoder_conv_t_strides,
         z_dim, use_batch_norm = False, use_dropout = False
         ):
-        """
-        input_shape -- tuple, (C, H, W)
-        """
         super(Autoencoder, self).__init__()
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.input_shape = input_shape
@@ -215,10 +223,12 @@ class Autoencoder(nn.Module):
         summary(self, input_size = self.input_shape)
 
 
-def compile(self, model, learning_rate):
+def compile(model, learning_rate):
     optimiser = optim.Adam(model.parameters(), lr = learning_rate)
     return optimiser
 
+def save(model, folder):
+    pass
 
 def load_weights(model, filepath):
     # Load state dicts
@@ -231,15 +241,22 @@ def train(model, train_ds, opt, batch_size, epochs, run_folder, print_every_n_ba
     z_dim = model.latent_shape[0]
     device = model.device
     # similar to step_decay_schedule
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size = batch_size, shuffle = True) 
     scheduler = StepLR(opt, step_size = 1, gamma = lr_decay)
     loss_f = nn.MSELoss()
+
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size = batch_size, shuffle = True) 
     for epoch in range(epochs):
-        for batch, data in enumerate(train_loader):
+        loop = tqdm(train_loader)
+        for batch, data in enumerate(loop):
             model.train()
             img, _ = data
+            img = img.cuda()
             out = model(img)
             loss = loss_f(out, img)
+            # progress bar
+            loop.set_description(f'Epoch {epoch + 1}/{epochs}')
+            loop.set_postfix(loss = loss.item())
+            # backprop
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -249,7 +266,7 @@ def train(model, train_ds, opt, batch_size, epochs, run_folder, print_every_n_ba
             with torch.no_grad():
                 model.eval()
                 z_new = torch.randn(1, z_dim).to(device)
-                reconst = model.decoder(z_new).numpy().squeeze()
+                reconst = model.decoder(z_new).cpu().numpy().squeeze()
                 filepath = os.path.join(run_folder, 'images', f'img_{epoch:03}_{batch}.jpg')
                 if len(reconst.shape) == 2:
                     plt.imsave(filepath, reconst, cmap = 'gray_r')
@@ -257,8 +274,6 @@ def train(model, train_ds, opt, batch_size, epochs, run_folder, print_every_n_ba
                     plt.imsave(filepath, reconst)
         if epoch >= initial_epoch: scheduler.step()
         # similar to ModelCheckpoint
-        save_path = os.path.joib(run_folder, 'weights', 'weight.pth')
+        save_path = os.path.join(run_folder, 'weights', 'weight.pth')
         torch.save(model.state_dict(), save_path)
         print(f'\nEpoch {epoch + 1:05}: saving model to {save_path}')
-
-            
