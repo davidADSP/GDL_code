@@ -28,13 +28,14 @@ class CustomCallback(Callback):
 
 
 
-def step_decay_schedule(initial_lr, decay_factor=0.5, step_size=1):
+def step_decay_schedule(initial_lr, decay_factor=0.5, step_size=1, verbose = 0):
     '''
     Wrapper function to create a LearningRateScheduler with step decay schedule.
     '''
+    # update in epoch-level, initial_lr overwrites lr set in opt init
     def schedule(epoch):
         new_lr = initial_lr * (decay_factor ** np.floor(epoch/step_size))
         
         return new_lr
 
-    return LearningRateScheduler(schedule)
+    return LearningRateScheduler(schedule, verbose = verbose)

@@ -7,10 +7,17 @@ REFERENCE:
     - [medium] tutorial: https://medium.com/@umerfarooq_26378/model-summary-in-pytorch-b5a1e4b64d25
 4. [github] visualization on convolution / convolution transpose operation: https://github.com/vdumoulin/conv_arithmetic
 """
+import os
+import sys
+
+import numpy as np
+import matplotlib.pyplot as plt
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pdb
+from torch import optim
+from torch.optim.lr_scheduler import StepLR
 from torchsummary import summary
 
 
@@ -176,6 +183,7 @@ class Autoencoder(nn.Module):
         input_shape -- tuple, (C, H, W)
         """
         super(Autoencoder, self).__init__()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.input_shape = input_shape
         self.latent_shape = (z_dim, )
         self.encoder = Encoder(
@@ -190,6 +198,7 @@ class Autoencoder(nn.Module):
                             decoder_conv_t_strides, z_dim, 
                             use_batch_norm, use_dropout
                         )
+        self.to(self.device)
 
     def forward(self, x):
         x = self.encoder(x)
@@ -205,3 +214,51 @@ class Autoencoder(nn.Module):
     def autoencoder_summary(self):
         summary(self, input_size = self.input_shape)
 
+
+def compile(self, model, learning_rate):
+    optimiser = optim.Adam(model.parameters(), lr = learning_rate)
+    return optimiser
+
+
+def load_weights(model, filepath):
+    # Load state dicts
+    assert os.path.isfile(filepath), f'[ERROR] weights not exist: {filepath}' 
+    model.load_state_dict(torch.load(filepath))
+    return model
+
+
+def train(model, train_ds, opt, batch_size, epochs, run_folder, print_every_n_batches = 100, initial_epoch = 0, lr_decay = 1):
+    z_dim = model.latent_shape[0]
+    device = model.device
+    # similar to step_decay_schedule
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size = batch_size, shuffle = True) 
+    scheduler = StepLR(opt, step_size = 1, gamma = lr_decay)
+    loss_f = nn.MSELoss()
+    for epoch in range(epochs):
+        for batch, data in enumerate(train_loader):
+            model.train()
+            img, _ = data
+            out = model(img)
+            loss = loss_f(out, img)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            # similar to CustomCallback
+            if batch % print_every_n_batches != 0:
+                continue
+            with torch.no_grad():
+                model.eval()
+                z_new = torch.randn(1, z_dim).to(device)
+                reconst = model.decoder(z_new).numpy().squeeze()
+                filepath = os.path.join(run_folder, 'images', f'img_{epoch:03}_{batch}.jpg')
+                if len(reconst.shape) == 2:
+                    plt.imsave(filepath, reconst, cmap = 'gray_r')
+                else:
+                    plt.imsave(filepath, reconst)
+        if epoch >= initial_epoch: scheduler.step()
+        # similar to ModelCheckpoint
+        save_path = os.path.joib(run_folder, 'weights', 'weight.pth')
+        torch.save(model.state_dict(), save_path)
+        print(f'\nEpoch {epoch + 1:05}: saving model to {save_path}')
+
+            
