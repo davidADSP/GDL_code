@@ -7,10 +7,10 @@ https://learning.oreilly.com/library/view/generative-deep-learning/9781492041931
 
 https://www.amazon.com/Generative-Deep-Learning-Teaching-Machines/dp/1492041947/ref=sr_1_1
 
-### [Alex] Objective
+### Objective
 Reimplement "Deep Generative Learning" in PyTorch.
 
-### [Alex] Notes
+### [Temporary Draft] Notes
 To make the codebase works in Windows, do the following:
 1. ```conda install matplotlib```
 2. ```conda install -c anaconda pillow==6.2.1```  
@@ -50,10 +50,6 @@ To make the codebase works in Windows, do the following:
     ```
 11. ```pip install torchsummary```
 
-## Tensorflow
-
-This branch uses standalone Keras with a Tensorflow 1.14 backend. See the `tensorflow_2` branch for the Keras within Tensorflow 2.0 version of the codebase.
-
 ## Structure
 
 This repository is structured as follows:
@@ -80,12 +76,8 @@ Part 2: Teaching Machines to Paint, Write, Compose and Play
 * Chapter 10: Conclusion
 
 
-## Getting started
-
-To get started, first install the required libraries inside a virtual environment:
-
-`pip install -r requirements.txt`
- 
+## [TBC] Getting started
+Coming...
 
 
 
