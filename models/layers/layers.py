@@ -4,7 +4,6 @@ import tensorflow as tf
 import keras
 
 from keras.layers import Layer, InputSpec
-import keras.backend as K
 
 class ReflectionPadding2D(Layer):
     def __init__(self, padding=(1, 1), **kwargs):
