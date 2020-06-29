@@ -51,6 +51,9 @@ class VAEModel(Model):
             "kl_loss": kl_loss,
         }
 
+    def call(self,inputs):
+        latent = self.encoder(inputs)
+        return self.decoder(latent)
 
 
 
@@ -125,7 +128,7 @@ class VariationalAutoencoder():
 
         self.z = Sampling(name='encoder_output')([self.mu, self.log_var])
 
-        self.encoder = Model(encoder_input, [self.mu, self.log_var, self.z])
+        self.encoder = Model(encoder_input, [self.mu, self.log_var, self.z], name = 'encoder')
         
         
 
@@ -160,7 +163,7 @@ class VariationalAutoencoder():
 
         decoder_output = x
 
-        self.decoder = Model(decoder_input, decoder_output)
+        self.decoder = Model(decoder_input, decoder_output, name = 'decoder')
 
         ### THE FULL VAE
 
@@ -238,25 +241,17 @@ class VariationalAutoencoder():
 
         self.model.save_weights(os.path.join(run_folder, 'weights/weights.h5'))
 
-        try:
-            self.model.fit(
-                data_flow
-                , shuffle = True
-                , epochs = epochs
-                , initial_epoch = initial_epoch
-                , callbacks = callbacks_list
-                , steps_per_epoch=steps_per_epoch 
-                )
 
-        except: # strange bug in Keras - errors on first pass through model.fit, but succeeds thereafter
-            self.model.fit(
-                data_flow
-                , shuffle = True
-                , epochs = epochs
-                , initial_epoch = initial_epoch
-                , callbacks = callbacks_list
-                , steps_per_epoch=steps_per_epoch 
-                )
+        self.model.fit(
+            data_flow
+            , shuffle = True
+            , epochs = epochs
+            , initial_epoch = initial_epoch
+            , callbacks = callbacks_list
+            , steps_per_epoch=steps_per_epoch 
+            )
+
+
 
 
     
