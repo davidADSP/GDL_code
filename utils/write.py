@@ -323,7 +323,7 @@ def trim_embeddings():
             break
         keep.add(word)
 
-    with open("./data/glove/glove.6B.100d.txt", encoding="utf-8")) as f:
+    with open("./data/glove/glove.6B.100d.txt", encoding="utf-8") as f:
         with open("./data/glove/glove.6B.100d.trimmed.txt", "w") as f2:
             for line in f:
                 if line.split(" ")[0] in keep:
