@@ -35,7 +35,7 @@ class ImageLabelLoader():
                 , x_col='image_id'
                 , y_col=label
                 , target_size=self.target_size 
-                , class_mode='other'
+                , class_mode='raw'
                 , batch_size=batch_size
                 , shuffle=True
             )
