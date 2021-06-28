@@ -233,14 +233,13 @@ class VariationalAutoencoder():
         custom_callback = CustomCallback(run_folder, print_every_n_batches, initial_epoch, self)
         lr_sched = step_decay_schedule(initial_lr=self.learning_rate, decay_factor=lr_decay, step_size=1)
 
-        checkpoint_filepath=os.path.join(run_folder, "weights/weights-{epoch:03d}-{loss:.2f}.h5")
+        checkpoint_filepath=os.path.join(run_folder, "weights/weights-{epoch:03d}.h5")
         checkpoint1 = ModelCheckpoint(checkpoint_filepath, save_weights_only = True, verbose=1)
         checkpoint2 = ModelCheckpoint(os.path.join(run_folder, 'weights/weights.h5'), save_weights_only = True, verbose=1)
 
         callbacks_list = [checkpoint1, checkpoint2, custom_callback, lr_sched]
 
         self.model.save_weights(os.path.join(run_folder, 'weights/weights.h5'))
-
 
         self.model.fit(
             data_flow
