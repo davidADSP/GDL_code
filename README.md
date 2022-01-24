@@ -1,6 +1,9 @@
 # Generative Deep Learning
 ### Teaching Machines to paint, write, compose and play
 
+- First : ``git clone -b tensorflow_2 git@github.com:makinzm/GDL_code.git``
+- My-note : [README-ja.md](README-ja.md)
+
 The official code repository for examples in the O'Reilly book 'Generative Deep Learning'
 
 https://learning.oreilly.com/library/view/generative-deep-learning/9781492041931/
