@@ -1,48 +1,15 @@
-# Generative Deep Learning
-### Teaching Machines to paint, write, compose and play
+# 🦜 Generative Deep Learning
 
-The official code repository for examples in the O'Reilly book 'Generative Deep Learning'
+## [NEW] 🚀 2nd edition codebase now live!
 
-https://learning.oreilly.com/library/view/generative-deep-learning/9781492041931/
+⚠️ This repository is no longer maintained as the codebase for the 2nd edition of Generative Deep Learning is now live!
 
-https://www.amazon.com/Generative-Deep-Learning-Teaching-Machines/dp/1492041947/ref=sr_1_1
+Please head over to https://github.com/davidADSP/Generative_Deep_Learning_2nd_Edition to check it out.
 
-## Tensorflow
+## Branches
 
-This branch uses standalone Keras with a Tensorflow 1.14 backend. See the `tensorflow_2` branch for the Keras within Tensorflow 2.0 version of the codebase.
+The `master` branch of this repo contains the Tensorflow 1.14 code that is present in the original book (first edition)
 
-## Structure
+The  `tensorflow_2` branch contains updated code that runs using Tensorflow 2.
 
-This repository is structured as follows:
-
-The notebooks for each chapter are in the root of the repository, prefixed with the chapter number.
-
-The `data` folder is where to download relevant data sources (chapter 3 onwards)
-The `run` folder stores output from the generative models (chapter 3 onwards)
-The `utils` folder stores useful functions that are sourced by the main notebooks
-
-## Book Contents
-Part 1: Introduction to Generative Deep Learning
-* Chapter 1: Generative Modeling
-* Chapter 2: Deep Learning
-* Chapter 3: Variational Autoencoders
-* Chapter 4: Generative Adversarial Networks
-
-Part 2: Teaching Machines to Paint, Write, Compose and Play
-* Chapter 5: Paint
-* Chapter 6: Write
-* Chapter 7: Compose
-* Chapter 8: Play
-* Chapter 9: The Future of Generative Modeling
-* Chapter 10: Conclusion
-
-
-## Getting started
-
-To get started, first install the required libraries inside a virtual environment:
-
-`pip install -r requirements.txt`
- 
-
-
-
+However, I recommend swiching over to the repository for the 2nd edition (see above), as it contains many new examples and improvements to the overall structure.
